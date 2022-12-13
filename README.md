@@ -14,8 +14,12 @@ The detailed description of each method is given in `methods.py`. `oracles.py` c
 # Citation
 
 @article{newton3PC2022,
+
   author = {Islamov, Rustem and Qian, Xun and Hanzely, Slavomír and Safaryan, Mher and Richtárik, Peter},
+  
   title = {Distributed Newton-Type Methods with Communication Compression and Bernoulli Aggregation},
+  
   journal={arXiv preprint arXiv: 2206.03588}
+  
   year = {2022}
 }
