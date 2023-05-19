@@ -9,7 +9,7 @@ Despite their high computation and communication costs, Newton-type methods rema
 
 # Code
 
-The detailed description of each method is given in `methods.py`. `oracles.py` contains the functions that computes various characteristics of Logisitc Regression problem: local Hessians and gradients, Lipschitz constants, etc. `utils.py` consists of additional functions such as compression operators. The code is straightforward. Please, have a look at example notebook to see how one can run one of the implemented methods. 
+The detailed description of each method is given in `methods.py`. `oracles.py` contains the functions that computes various characteristics of Logisitc Regression problem: local Hessians and gradients, Lipschitz constants, etc. `utils.py` consists of additional functions such as compression operators. The code is straightforward. Please, have a look at `example notebook` to see how one can run one of the implemented methods. 
 
 # Citation
 
