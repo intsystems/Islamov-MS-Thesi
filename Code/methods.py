@@ -11,6 +11,225 @@ from utils import randomK_vectors, rand_dith
 from utils import random_spars_matrix
 
 
+################################################################
+class Newton_3PC:
+    def __init__(self, oracle):
+        '''
+        ----------------------------------------------
+        This class is created to simulate FedNL method 
+        with CLAG update rule
+        ----------------------------------------------
+        '''
+        self.oracle = oracle
+    
+    def method(self, x, hes_comp_param_outer, xi=1, hes_comp_name_outer='LowRank', init='nonzero',\
+               hes_comp_param_inner=None, p=1, hes_comp_name_inner=None,
+               init_cost=True, option=1, upd_rule='EF21',\
+               max_iter=100, tol=1e-15,\
+               bits_compute='OneSided', verbose=True):
+        
+        '''
+        ------------------------------
+        Implementation of Newton-3PC method
+        with CLAG update rule
+        ------------------------------
+        
+        input: x - initial point
+        hes_comp_param - parameter of local Hessian compression operator
+        hes_comp_name - name of compression operator for Hessians
+        init - if zero, then H^0_i = 0, otherwise H^0_i = \nabla^2 f_i(x^0)
+        init_cost - if True, then the communication cost on initialization is included
+        option - if 1, then the method uses Option 1 of FedNL; 
+                 if 2, then the method uses Option 2 of FedNL
+        upd_rule - if 1, then method requires Biased compressor and uses stepsize alpha=1-\sqrt{1-delta}
+                   if 2, then method requires Biased compressor and uses stepsize alpha=1
+                   if 3, then methods requires Unbiased compressor and uses stepsize alpha=1/(omega+1)
+        lr - learning rate if the user wants to use PowerSGD where stepsize can be chosen
+        max_iter - maximum number of iterations
+        tol - desired tolerance of the solution
+        bits_compute - if OneSided, then bits are computed in upside direction only
+                       if TwoSided, then bits are computed in both directions: upside and backside
+        verbose - if True, then function values in each iteration are printed
+        
+        return:
+        func_value - numpy array containing function value in each iteration of the method
+        bits - numpy array containing transmitted bits by one node to the server
+        iterates - numpy array containing distances from current point to the solution
+        '''
+        
+        
+        x_opt = self.oracle.get_optimum()
+        d = self.oracle.get_number_of_weights()
+        lmb = self.oracle.get_reg_coef()
+        n = self.oracle.get_number_of_nodes()
+        m = self.oracle.get_number_of_local_data_points()
+        N = n*m
+        
+        comp_hessians = {
+            'LowRank':Low_Rank,
+            'TopK': TopK,
+            'PowerSGD':PowerSgdCompression,
+            'RandomK':random_spars_matrix
+        }
+        
+        def hes_comp_cost(hes_comp_name, hes_comp_param, d=d):
+            if hes_comp_name=='LowRank':
+                return 32*hes_comp_param*d
+            if hes_comp_name=='TopK':
+                return 32*hes_comp_param
+            if hes_comp_name=='PowerSGD':
+                return 2*32*hes_comp_param*d,
+            if hes_comp_name=='RandomK':
+                return 32*hes_comp_param
+
+        
+        x_new = x.copy()
+        x_old = x.copy()
+        w = x.copy()
+
+        func_value = [] 
+        bits = [] 
+        iterates = []
+
+        f_opt = self.oracle.function_value(x_opt)
+
+        func_value.append(self.oracle.function_value(x_new))
+        iterates.append(np.linalg.norm(x_new-x_opt))
+        global_bits = 1
+        bits.append(1)
+        
+
+        H_i = []
+        for i in range(n):
+            if init == 'zero':
+                H_i.append(np.zeros((d,d)))
+            else:
+                H_i.append(self.oracle.local_Hessian(x_new,i)+lmb*np.eye(d))
+                
+        if init_cost:
+            func_value.append(self.oracle.function_value(x_new))
+            global_bits = 32*d*(d+1)//2
+            bits.append(global_bits)
+            iterates.append(np.linalg.norm(x_new-x_opt))
+            
+            
+
+        if verbose:
+            print(func_value[-1])
+            
+        n_iters = 0
+        while func_value[-1] > f_opt + tol and n_iters <= max_iter:
+            n_iters += 1
+
+            x_old = x_new
+
+
+            if option == 1:
+                H = np.mean(H_i, axis=0)
+                H = pos_projection(H, lmb)
+
+            if option == 2:
+                H = np.mean(H_i, axis=0)
+                l_i = []
+                for i in range(n):
+                    l_i.append(np.linalg.norm(self.oracle.local_Hessian(x_old,i)+lmb*np.eye(d) - H_i[i], 2))    
+                l = np.mean(l_i)
+                H += l*np.eye(d)
+
+                
+            s = np.linalg.solve(H, self.oracle.full_gradient(x_old) + lmb*x_old)
+            x_new = x_old - s   
+            
+            iterates.append(np.linalg.norm(x_new-x_opt))
+            func_value.append(self.oracle.function_value(x_new))
+
+
+            
+            bern_rv = bernoulli.rvs(p)
+            for i in range(n):
+                X = self.oracle.local_Hessian(x_new, i)+lmb*np.eye(d)
+                Y = self.oracle.local_Hessian(x_old, i)+lmb*np.eye(d)
+                ############## Update rule EF21 ####################
+                if upd_rule == 'EF21':
+                    Delta, delta = comp_hessians[hes_comp_name_outer](X - H_i[i], hes_comp_param_outer)
+                    H_i[i] += Delta
+                    if i == 0:
+                        global_bits += hes_comp_cost(hes_comp_name_outer, hes_comp_param_outer)
+
+                ############# Update rule CLAG ##################
+                if upd_rule == 'CLAG':
+                    if np.linalg.norm(X-H_i[i], ord='fro')**2 > xi*np.linalg.norm(X-Y, ord='fro')**2:
+                        Delta, delta = comp_hessians[hes_comp_name_outer](X - H_i[i], hes_comp_param_outer)
+                        H_i[i] += Delta
+                        if i == 0:
+                            global_bits += hes_comp_cost(hes_comp_name_outer, hes_comp_param_outer)
+
+
+                ############# Update rule LAG ##################
+                if upd_rule == 'LAG':
+                    if np.linalg.norm(X-H_i[i], ord='fro')**2 > xi*np.linalg.norm(X-Y, ord='fro')**2:
+                        H_i[i] = X
+                        if i == 0:
+                            global_bits += 32*d*(d+1)//2
+
+                ############# Update rule 3PCv1 ##################
+                if upd_rule == '3PCv1':
+                    Delta, delta = comp_hessians[hes_comp_name_outer](X-Y, hes_comp_param_outer)
+                    H_i[i] = Y + Delta
+                    if i == 0:
+                        global_bits += 32*d*(d+1)//2
+
+                ############# Update rule 3PCv2 ##################
+                if upd_rule == '3PCv2':
+                    #inner compressor should be unbiased
+                    temp_b, _ = comp_hessians[hes_comp_name_inner](X - Y, hes_comp_param_inner)
+                    temp_b += H_i[i]
+                    Delta, delta = comp_hessians[hes_comp_name_outer](X - temp_b, hes_comp_param_outer)
+                    H_i[i] = temp_b + Delta
+                    if i == 0:
+                        global_bits += hes_comp_cost(hes_comp_name_outer, hes_comp_param_outer)
+                        global_bits += hes_comp_cost(hes_comp_name_inner, hes_comp_param_inner)
+
+                ############# Update rule 3PCv4 ##################
+                if upd_rule == '3PCv4':
+                    #inner compressor should be biased
+                    temp_b, _ = comp_hessians[hes_comp_name_inner](X - H_i[i], hes_comp_param_inner)
+                    temp_b += H_i[i]
+                    Delta, delta = comp_hessians[hes_comp_name_outer](X - temp_b, hes_comp_param_outer)
+                    H_i[i] = temp_b + Delta
+                    if i == 0:
+                        global_bits += hes_comp_cost(hes_comp_name_outer, hes_comp_param_outer)
+                        global_bits += hes_comp_cost(hes_comp_name_inner, hes_comp_param_inner)
+                    
+                
+                ############# Update rule 3PCv5 ##################
+                if upd_rule == '3PCv5':
+                    if bern_rv:
+                        H_i[i] = X
+                        if i == 0:
+                            global_bits += 32*d*(d+1)//2
+                    else:
+                        Delta, delta = comp_hessians[hes_comp_name_outer](X - Y, hes_comp_param_outer)
+                        H_i[i] += Delta
+                        if i == 0:
+                            global_bits += hes_comp_cost(hes_comp_name_outer, hes_comp_param_outer)
+
+            # transmit gradients
+            global_bits += 32*d 
+            
+            if bits_compute=='TwoSided':
+                # transmit models
+                global_bits += 32*d
+
+            bits.append(global_bits)
+            
+            if verbose:
+                print(func_value[-1])
+
+                
+            
+        return np.array(func_value), np.array(bits), np.array(iterates)
+
 
 ################################################################
 class Standard_Newton:
@@ -201,7 +420,7 @@ class NL1:
         self.oracle = oracle
         
     def method(self, x, H, max_iter=100, k=1, eta=None, tol=10**(-14), init_cost=True,\
-               line_search=False, gamma=0.5, c = 0.5, verbose=True):
+               line_search=False, gamma=0.5, c = 0.5, verbose=True, bits_compute='OneSided'):
         '''
         -------------------------
         Implementation of NL1 method
@@ -293,6 +512,9 @@ class NL1:
                 x = x + t*D
             else:
                 x = x + D
+                
+            if bits_compute=='TwoSided':
+                global_bit += 32*d
 
             bits.append(global_bit)
             iterates.append(x)
@@ -423,11 +645,13 @@ class DINGO:
                 a /= 2
                 g_next = self.oracle.full_gradient(x+a*p)+lmb*(x+a*p)
                 g_next_norm = np.linalg.norm(g_next)**2
+            
                
             if n_steps < 5:
                 a = min(1e-2, a)
             a = max(a, 2**(-10))
             x = x + a*p
+            
             func_value.append(self.oracle.function_value(x))
             bits.append(global_bit)
             
@@ -1009,7 +1233,7 @@ class Newton_Zero:
         '''
         self.oracle = oracle
         
-    def method(self, x, init_cost=True, line_search=False, gamma=0.5, c=0.5, tol=1e-15, max_iter=1000, verbose=True):
+    def method(self, x, init_cost=True, line_search=False, gamma=0.5, c=0.5, tol=1e-15, max_iter=1000, verbose=True, bits_compute='OneSided'):
         '''
         -------------------------
         Implementation of N0 method
@@ -1065,6 +1289,7 @@ class Newton_Zero:
             D = - np.linalg.inv(H).dot(g)
             der = D.dot(g)
             t = 1
+            global_bits += 32*d
             
             if line_search:
                 while self.oracle.function_value(x+t*D) > func_value[-1] + c*t*der:
@@ -1072,14 +1297,16 @@ class Newton_Zero:
                     global_bits += 32
 
             x = x + t*D
-
-            global_bits += 32*d
+            
+            if bits_compute=='TwoSided':
+                global_bits += 32*d
             bits.append(global_bits)
             func_value.append(self.oracle.function_value(x))
             iterates.append(np.linalg.norm(x-x_opt))
             
             if verbose:
                 print(func_value[-1])
+            
                 
         return np.array(func_value), np.array(bits), np.array(iterates)
         
@@ -1167,6 +1394,90 @@ class Gradient_Descent:
             bits.append(global_bits)
             iterates.append(np.linalg.norm(x-x_opt))
             func_value.append(self.oracle.function_value(x))
+
+            if verbose:
+                print(func_value[-1])
+            
+        return np.array(func_value), np.array(bits), np.array(iterates)
+        
+        
+class Local_Gradient_Descent:
+
+    def __init__(self, oracle):
+        '''
+        -------------------------------------------------
+        This class is created to simulate Gradient Descent (GD)
+        -------------------------------------------------
+        '''
+        self.oracle = oracle
+        
+    def method(self, x, h, max_iter=100000, tol=1e-15, verbose=True):
+        '''
+        -------------------------
+        Implementation of Local GD method
+        -------------------------
+        input:
+        x - initial model weightsn
+        h - number of local steps
+        tol - desired tolerance of the solution
+        max_iter - maximum number of iterations
+        verbose - if True, then function values in each iteration are printed
+        
+        return:
+        func_value - numpy array containing function value in each iteration of the method
+        bits - numpy array containing transmitted bits by one node to the server
+        iterates - numpy array containing distances from current point to the solution
+        '''
+        x_opt = self.oracle.get_optimum()
+        d = self.oracle.get_number_of_weights()
+        lmb = self.oracle.get_reg_coef()
+        n = self.oracle.get_number_of_nodes()
+        m = self.oracle.get_number_of_local_data_points()
+        N = n*m
+        
+        X_i = []
+        for i in range(n):
+            X_i.append(x.copy())
+        
+        func_value = [] 
+        bits = [] 
+        iterates = []
+        stepsizes = []
+        f_opt = self.oracle.function_value(x_opt)
+
+        func_value.append(self.oracle.function_value(x))
+        global_bits = 1
+        bits.append(global_bits)
+        iterates.append(np.linalg.norm(x-x_opt))
+        stepsizes = []
+
+        H = np.dot(self.oracle.A.T,self.oracle.A)/N
+        temp = np.linalg.eigvalsh(H)
+        L = np.abs(temp[-1])/4
+        
+        if verbose:
+            print(func_value[-1])
+            
+        n_steps = 0
+        
+        while func_value[-1] - f_opt > tol and n_steps <= max_iter:
+            n_steps += 1
+            
+            for t in range(h):
+                for i in range(n):
+                    X_i[i] -= 1/(L*h)*(self.oracle.local_gradient(X_i[i],i)+lmb*X_i[i])
+                    
+            #averaging
+            x = np.mean(X_i, axis=0)
+            for i in range(n):
+                X_i[i] = x.copy()
+            global_bits += 32*d
+            bits.append(global_bits)
+            iterates.append(np.linalg.norm(x-x_opt))
+            func_value.append(self.oracle.function_value(x))
+            
+            
+            
 
             if verbose:
                 print(func_value[-1])
