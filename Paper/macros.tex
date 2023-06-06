@@ -1,0 +1,152 @@
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+\usepackage{threeparttable}
+\usepackage{makecell}
+\newcommand{\makecellnew}[1]{{\renewcommand{\arraystretch}{0.8}\begin{tabular}{c} #1 \end{tabular}}}
+
+\usepackage{multirow}
+\usepackage{colortbl}
+\definecolor{bgcolor}{rgb}{0.8,1,1}
+\definecolor{bgcolor2}{rgb}{0.8,1,0.8}
+%%%%%%%%
+\usepackage{bm}
+\usepackage{graphicx} %Loading the package
+% \graphicspath{{../Experiments/}}
+\graphicspath{{../}}
+
+
+\usepackage{xspace}
+% \newcommand{\algname}[1]{{\sf#1}\xspace}
+\newcommand{\algname}[1]{{\sf\green#1}\xspace}
+\newcommand{\dataname}[1]{{\tt#1}\xspace}
+
+\newcommand{\ExpBrk}[1]{\mathbb{E}_k\left[#1\right]}
+\newcommand{\fronorm}[1]{\left\|#1\right\|_{\text{F}}}
+\newcommand{\eqdef}{\; { := }\;}
+\newcommand{\Prob}[1]{\mathbb{P}\left(#1\right)}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\B}{\mathbb{B}}
+\newcommand{\Sym}{\mathbb{S}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Ind}{\mathbb{I}}
+\newcommand{\Exp}{\mathbb{E}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\ExpBr}[1]{\mathbb{E}\left[#1\right]}
+\newcommand{\Cases}[1]{\begin{cases}#1\end{cases}}
+\newcommand{\norm}[1]{\left\|#1\right\|}
+\def\<#1,#2>{\langle #1,#2\rangle}
+\newcommand{\cX}{\mathcal{X}}
+\newcommand{\bJ}{\mathbf{J}}
+\newcommand{\dom}{\operatorname{dom}}
+\newcommand{\prox}{\operatorname{prox}}
+\newcommand{\footeq}[1]{{\footnotesize #1}}
+\newcommand{\basis}{\mathfrak{B}}
+\newcommand{\basisform}[2]{\langle #1 | #2 \rangle}
+\newcommand{\HS}{L_{*}}      % NEW NOTATION
+\newcommand{\HF}{L_{\rm F}}% NEW NOTATION
+\newcommand{\HM}{L_{\infty}}% NEW NOTATION
+
+\def\<{\left\langle}
+\def\>{\right\rangle}
+\def\ll{\left[}
+\def\rr{\right]}
+% \def\[{\left[}
+% \def\]{\right]}
+\def\({\left(}
+\def\){\right)}
+
+
+\usepackage{tcolorbox}
+\usepackage{pifont}
+\definecolor{mydarkgreen}{RGB}{39,130,67}
+\definecolor{mydarkred}{RGB}{192,47,25}
+\newcommand{\green}{\color{mydarkgreen}}
+\newcommand{\red}{\color{mydarkred}}
+\newcommand{\cmark}{\green\ding{51}}%
+\newcommand{\xmark}{\red\ding{55}}%
+
+\newcommand{\cO}{\mathcal{O}}
+\newcommand{\mA}{\mathbf{A}}
+\newcommand{\mB}{\mathbf{B}}
+\newcommand{\mC}{\mathbf{C}}
+\newcommand{\mH}{\mathbf{H}}
+\newcommand{\mE}{\mathbf{E}}
+\newcommand{\mL}{\mathbf{L}}
+\newcommand{\mT}{\mathbf{T}}
+\newcommand{\mQ}{\mathbf{Q}}
+\newcommand{\mI}{\mathbf{I}}
+\newcommand{\mU}{\mathbf{U}}
+\newcommand{\mV}{\mathbf{V}}
+\newcommand{\mZ}{\mathbf{Z}}
+\newcommand{\mM}{\mathbf{M}}
+\newcommand{\mY}{\mathbf{Y}}
+\newcommand{\mS}{\mathbf{S}}
+\newcommand{\mX}{\mathbf{X}}
+\newcommand{\mbU}{\mathbb{U}}
+
+\newcommand{\cC}{{\mathcal{C}}}
+\newcommand{\cP}{{\mathcal{P}}}
+\newcommand{\cQ}{{\mathcal{Q}}}
+\newcommand{\cH}{{\mathcal{H}}}
+\newcommand{\cW}{{\mathcal{W}}}
+\newcommand{\cB}{{\mathcal{B}}}
+\newcommand{\mcX}{{\mathcal{X}}}
+\newcommand{\cY}{{\mathcal{Y}}}
+\newcommand{\cA}{{\mathcal{A}}}
+\newcommand{\cL}{{\mathcal{L}}}
+
+% \DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+% \DeclareMathOperator*{\tr}{{\rm tr}}
+% \DeclareMathOperator*{\supp}{{\rm supp}}
+
+
+\usepackage{amsmath,amsfonts,amssymb,amsthm,array}
+
+
+\usepackage{mdframed} 
+\usepackage{thmtools}
+\usepackage{textcomp}
+
+%\theoremstyle{shaded}
+\declaretheorem[within=section]{definition}
+\declaretheorem[sibling=definition]{theorem}
+\declaretheorem[sibling=definition]{proposition}
+\declaretheorem[sibling=definition]{assumption}
+\declaretheorem[sibling=definition]{corollary}
+\declaretheorem[sibling=definition]{conjecture}
+\declaretheorem[sibling=definition]{lemma}
+\declaretheorem[sibling=definition]{example}
+\declaretheorem[sibling=definition]{remark}
+
+%\usepackage[russian]{babel}
+\renewcommand{\proofname}{Proof}
+% TO DO NOTES 
+\usepackage[colorinlistoftodos,bordercolor=orange,backgroundcolor=orange!20,linecolor=orange,textsize=scriptsize]{todonotes}
+
+\newcommand{\xun}[1]{\todo[inline]{\textbf{Xun: }#1}}
+\newcommand{\peter}[1]{\todo[inline]{\textbf{Peter: }#1}}
+\newcommand{\rustem}[1]{\todo[inline]{\textbf{Rustem: }#1}}
+\newcommand{\mher}[1]{\todo[inline]{\textbf{Mher: }#1}}
+\newcommand{\slavo}[1]{\todo[inline]{\textbf{Slavo: }#1}}
+
+
+
+\usepackage{microtype}
+\usepackage{subfigure}
+\usepackage{booktabs} % for professional tables
+\usepackage{grffile}
+\usepackage{hyperref}
+
+% \newcommand{\theHalgorithm}{\arabic{algorithm}}
+\setlength{\marginparwidth }{2cm} 
+
+% \newcommand{\squeeze}{\textstyle}
+\newcommand{\squeeze}{}
+
+
+
+
+
+
